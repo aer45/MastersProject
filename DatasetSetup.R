@@ -1,6 +1,6 @@
 # Function to cut dataset by time period
 # Allen Ross
-# 1/22/17
+# 2/12/17
 
 # Libraries
 library(sqldf)
@@ -59,6 +59,12 @@ medications <- rbind(h.medications, c.medications)
 social <- unique(rbind(h.social, c.social))
 patp <- unique(rbind(h.patp, c.patp))
 
+# Subset inpatient and outpatient visits to gather correct phenotypes
+pheno_outpatient<-sqldf('select PatientIdentifier, encounteridentifier
+                from encounter
+                where (inpatientoutpatientbillingcode=="O" or inpatientoutpatientbillingcode=="NA") 
+                and admitdate<"7/1/2015 12:00:00 AM" or arrivaldate<"7/1/2015 12:00:00 AM"')
+
 # Remove unnecessary datasets
 rm(h.patient, h.encounter, h.diagnoses, h.medications, h.social, h.patp,
    c.patient, c.encounter, c.diagnoses, c.medications, c.social, c.patp)
@@ -88,7 +94,7 @@ diagnoses <- diagnoses %>%
                      -DiagnosisName, -VisitTypeCategory, -VisitType,
                      -EncounterType, -EDIndicator, -VisitReason, -Hospital, -ClinicLocationName, 
                      -PatientYearofBirth, -DiagnosisDate, -AdmitDate, -ArrivalDate,
-                     -LOShours)
+                     -LOShours, -InpatientOutpatientBillingCode)
 
 diagnoses$PatientRace[diagnoses$PatientRace=='CAUCASIAN/WHITE']<-'WHITE OR CAUCASIAN'
 diagnoses$PatientRace[diagnoses$PatientRace=='AMERICAN INDIAN']<-'AMERICAN INDIAN OR ALASKAN NATIVE'

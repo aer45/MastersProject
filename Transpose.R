@@ -16,7 +16,7 @@ datediff <- function(datecol,startdate,interval){
 
 
 # Read in dataset subset
-test<-diagnoses.c[diagnoses.c$PatientIdentifier%in%unique(diagnoses.c$PatientIdentifier)[1:500],]
+test<-diagnoses.c[diagnoses.c$PatientIdentifier%in%unique(diagnoses.c$PatientIdentifier)[1:150],]
 
 # Create group ID  
 test$Group<-datediff(test$EncounterDate,"2014-07-01","month")

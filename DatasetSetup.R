@@ -8,7 +8,6 @@ library(plyr)
 library(dplyr)
 library(reshape2)
 library(tidyr)
-#library(lubridate)
 
 # Read datasets in
 # Hospital
@@ -88,7 +87,7 @@ diagnoses$Encounter <- ifelse(is.na(diagnoses$EncounterType),
 diagnoses$Location <- ifelse(is.na(diagnoses$ClinicLocationName),diagnoses$Hospital,
                              diagnoses$ClinicLocationName)
 #diagnoses <- subset(diagnoses,,-c(Hospital, ClinicLocationName, PatientYearofBirth))
-diagnoses <- diagnoses %>% 
+diagnoses <- diagnoses %>%
               select(-TotalHospitalLOSindays, -LengthofStayLOSinhours,
                      -AgeontheDayoftheVisitinyears, -PatientAgeatArrivalinyears,
                      -DiagnosisName, -VisitTypeCategory, -VisitType,

@@ -16,10 +16,10 @@ datediff <- function(datecol,startdate,interval){
 
 
 # Read in dataset subset
-test<-diagnoses.c[diagnoses.c$PatientIdentifier%in%unique(diagnoses.c$PatientIdentifier)[1:150],]
+test<-diagnoses.c[diagnoses.c$PatientIdentifier%in%sample(unique(diagnoses.c$PatientIdentifier),500),]
 
 # Create group ID  
-test$Group<-datediff(test$EncounterDate,"2014-07-01","month")
+test$Group<-datediff(test$EncounterDate,"2014-07-01","1 year")
 
 # Order data by Pat ID, Group ID, and Encounter Date
 test<-test[order(test$PatientIdentifier,test$Group,test$EncounterDate),]
@@ -27,81 +27,95 @@ test<-test[order(test$PatientIdentifier,test$Group,test$EncounterDate),]
 # Code for missing values in categorical values in groups and attach tag for no duplicates
 test$DiagnosisGroup <- gsub('^$','NO DX GROUP', test$DiagnosisGroup)
 test$DiagnosisGroup <- paste0(test$DiagnosisGroup,'_GROUP')
+test$DiagnosisGroup <- NULL
 
 # Code for more potential missing values in categorical groups
 test$ICDDiagnosisCode <- gsub('^$','NO ICD',test$ICDDiagnosisCode)
 test$ICDDiagnosisCategoryDescription <- gsub('^$','NO DX CATEGORY',test$ICDDiagnosisCategoryDescription)
 test$ICDDiagnosisSubcategoryDescription <- gsub('^$','NO DX SUBCATEGORY',test$ICDDiagnosisSubcategoryDescription)
+test$ICDDiagnosisCategoryDescription <- paste0(test$ICDDiagnosisCategoryDescription,'_DXCAT')
+test$ICDDiagnosisSubcategoryDescription <- paste0(test$ICDDiagnosisSubcategoryDescription,'_DXSUBCAT')
 
 
 test2<-test %>%
   
   # Average Days Between Encounters
-  group_by(PatientIdentifier, Group) %>% 
-  mutate(avgdaycount = mean(as.numeric(difftime(unique(EncounterDate),
-            lag(unique(EncounterDate),1))),na.rm=T),AverageDaysBetweenEncounters=ifelse(is.nan(avgdaycount),NA,
-            avgdaycount)) %>% 
-  select(-avgdaycount) %>% 
-  ungroup() %>%
+  # group_by(PatientIdentifier, Group) %>% 
+  # mutate(avgdaycount = mean(as.numeric(difftime(unique(EncounterDate),
+  #           lag(unique(EncounterDate),1))),na.rm=T),AverageDaysBetweenEncounters=ifelse(is.nan(avgdaycount),NA,
+  #           avgdaycount)) %>% 
+  # select(-avgdaycount) %>% 
+  # ungroup() %>%
   
   # Encounter Count
   group_by(PatientIdentifier, Group) %>% 
   mutate(TotalEncounters = length(unique(EncounterIdentifier))) %>%
   ungroup() %>%
   
+  # Average Days Between Encounters
+  group_by(PatientIdentifier, Group) %>% 
+  mutate(AverageDaysBetweenEncounters = 365/TotalEncounters) %>%
+  ungroup() %>%
+  
+  group_by(PatientIdentifier, Group) %>% 
+  mutate(AVERAGE_AGE = mean(EncounterAge)) %>%
+  #mutate(AVERAGE_LOS = mean(LOShours)) %>%
+  dplyr::select(-EncounterAge) %>% #, -LOShours) %>%
+  
   # ICD Codes
   group_by(PatientIdentifier, Group, ICDDiagnosisCode) %>% 
   mutate(ICD_TEMP_COUNT = 1, ICD_COUNT = sum(ICD_TEMP_COUNT)) %>%
-  select(-ICD_TEMP_COUNT) %>%
+  dplyr::select(-ICD_TEMP_COUNT) %>%
   filter(row_number()==1) %>%
   spread(key = ICDDiagnosisCode, value = ICD_COUNT, fill = 0) %>% 
   ungroup() %>%
   
   # Diagnosis Group
-  group_by(PatientIdentifier, Group, DiagnosisGroup) %>% 
-  mutate(DG_TEMP_COUNT = 1, DG_COUNT = sum(DG_TEMP_COUNT)) %>%
-  select(-DG_TEMP_COUNT) %>% 
-  spread(key = DiagnosisGroup, value = DG_COUNT, fill = 0) %>% 
-  ungroup() %>%
+  # group_by(PatientIdentifier, Group, DiagnosisGroup) %>% 
+  # mutate(DG_TEMP_COUNT = 1, DG_COUNT = sum(DG_TEMP_COUNT)) %>%
+  # select(-DG_TEMP_COUNT) %>% 
+  # spread(key = DiagnosisGroup, value = DG_COUNT, fill = 0) %>% 
+  # ungroup() %>%
 
   # ICD Diagnosis Category
   group_by(PatientIdentifier, Group, ICDDiagnosisCategoryDescription) %>% 
   mutate(DC_TEMP_COUNT = 1, DC_COUNT = sum(DC_TEMP_COUNT)) %>%
-  select(-DC_TEMP_COUNT) %>% 
+  dplyr::select(-DC_TEMP_COUNT) %>% 
   spread(key = ICDDiagnosisCategoryDescription, value = DC_COUNT, fill = 0) %>% 
   ungroup() %>%
 
   # ICD Diagnosis Subcategory
   group_by(PatientIdentifier, Group, ICDDiagnosisSubcategoryDescription) %>%
   mutate(DSC_TEMP_COUNT = 1, DSC_COUNT=sum(DSC_TEMP_COUNT)) %>%
-  select(-DSC_TEMP_COUNT) %>%
+  dplyr::select(-DSC_TEMP_COUNT) %>%
   spread(key = ICDDiagnosisSubcategoryDescription, value = DSC_COUNT, fill = 0) %>%
   ungroup() %>%
 
-  group_by(PatientIdentifier, Group) %>% 
-  mutate(AVERAGE_AGE = mean(EncounterAge)) %>%
-  #mutate(AVERAGE_LOS = mean(LOShours)) %>%
-  select(-EncounterAge) %>% #, -LOShours) %>%
+  # group_by(PatientIdentifier, Group) %>% 
+  # mutate(AVERAGE_AGE = mean(EncounterAge)) %>%
+  # #mutate(AVERAGE_LOS = mean(LOShours)) %>%
+  # dplyr::select(-EncounterAge) %>% #, -LOShours) %>%
 
   # Location
   group_by(PatientIdentifier, EncounterIdentifier, Group, Location) %>% 
   mutate(LOC_TEMP_COUNT = length(unique(EncounterIdentifier)), LOC_COUNT = sum(LOC_TEMP_COUNT)) %>%
-  select(-LOC_TEMP_COUNT) %>% 
+  dplyr::select(-LOC_TEMP_COUNT) %>% 
   spread(key = Location, value = LOC_COUNT, fill = 0) %>% 
   ungroup() %>%
   
   # Encounter Type
   group_by(PatientIdentifier, EncounterIdentifier, Group, Encounter) %>% 
   mutate(ENC_TEMP_COUNT = 1, ENC_COUNT = sum(ENC_TEMP_COUNT)) %>%
-  select(-ENC_TEMP_COUNT) %>% 
+  dplyr::select(-ENC_TEMP_COUNT) %>% 
   spread(key = Encounter, value = ENC_COUNT, fill = 0) %>% 
   ungroup() %>%
 
   group_by(PatientIdentifier, Group) %>% 
   summarise_each(funs(max)) %>% 
-  select(-EncounterIdentifier, -EncounterDate)
+  dplyr::select(-EncounterIdentifier, -EncounterDate)
   
   
+test2$PatientGender<-paste0(test2$PatientGender,"_GENDER")
 test2$PatientRace<-paste0(test2$PatientRace,"_PR")
 test2$PatientEthnicGroup<-paste0(test2$PatientEthnicGroup,"_PE")
 test2$EverReportedAlcoholUse<-paste0(test2$EverReportedAlcoholUse,"_EA")

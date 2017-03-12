@@ -6,6 +6,9 @@ library(ggplot2)
 # Transformation Step
 test3<-test3[,colSums(test3)!=0]
 
+# Take out scz+bipo icds
+test3_nopheno<-test3[,!names(test3)%in%c(sczo,bipo)]
+
 # Change ICD to binary
 last.icd <- grep('\\_DXCAT$',names(test3))[1]-1
 first.gender <- grep('\\_GENDER$',names(test3))[1]
@@ -17,7 +20,7 @@ test3[,first.gender:length(test3)]<-ifelse(test3[,first.gender:length(test3)]==0
 # Split into ID, continous, and counts
 id <- test3[,c(1:2)]
 test3 <- test3[,-c(1:2)]
-
+ 
 # Scale and decompose df
 test3.scaled<-scale(test3)
 s.decomp<-svd(test3.scaled)

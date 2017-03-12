@@ -13,13 +13,14 @@ datediff <- function(datecol,startdate,interval){
 }
 
 
-
-
+#### TEST FOR ALL SCHIZOPHRENIA PATIENTS ###
+sczo_all <- unique(diagnoses3$PatientIdentifier[diagnoses3$ICDDiagnosisCode%in%sczo])
+test<-diagnoses3[diagnoses3$PatientIdentifier%in%sczo_all,]
 # Read in dataset subset
-test<-diagnoses.c[diagnoses.c$PatientIdentifier%in%sample(unique(diagnoses.c$PatientIdentifier),500),]
+#test<-diagnoses3[diagnoses3$PatientIdentifier%in%sample(unique(diagnoses3$PatientIdentifier),800),]
 
 # Create group ID  
-test$Group<-datediff(test$EncounterDate,"2014-07-01","1 year")
+test$Group<-datediff(test$EncounterDate,"2014-07-01","2 years")
 
 # Order data by Pat ID, Group ID, and Encounter Date
 test<-test[order(test$PatientIdentifier,test$Group,test$EncounterDate),]

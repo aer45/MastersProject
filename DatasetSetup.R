@@ -88,7 +88,7 @@ diagnoses$Location <- ifelse(is.na(diagnoses$ClinicLocationName),diagnoses$Hospi
                              diagnoses$ClinicLocationName)
 #diagnoses <- subset(diagnoses,,-c(Hospital, ClinicLocationName, PatientYearofBirth))
 diagnoses <- diagnoses %>%
-              select(-TotalHospitalLOSindays, -LengthofStayLOSinhours,
+              dplyr::select(-TotalHospitalLOSindays, -LengthofStayLOSinhours,
                      -AgeontheDayoftheVisitinyears, -PatientAgeatArrivalinyears,
                      -DiagnosisName, -VisitTypeCategory, -VisitType,
                      -EncounterType, -EDIndicator, -VisitReason, -Hospital, -ClinicLocationName, 
@@ -123,7 +123,7 @@ rm(diagnoses, diagnoses2, patp, social, patient, encounter)
 
 diagnoses.c<-diagnoses3[diagnoses3$EncounterDate<=as.Date("2015-06-30"),]
 diagnoses.f<-diagnoses3[diagnoses3$EncounterDate>as.Date("2015-06-30"),]
-rm(diagnoses3)
+#rm(diagnoses3)
 
 
 

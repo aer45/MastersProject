@@ -59,10 +59,15 @@ social <- unique(rbind(h.social, c.social))
 patp <- unique(rbind(h.patp, c.patp))
 
 # Subset inpatient and outpatient visits to gather correct phenotypes
-pheno_outpatient<-sqldf('select PatientIdentifier, encounteridentifier
-                from encounter
+pheno_outpatient<-sqldf('select PatientIdentifier, encounteridentifier, icddiagnosiscode, 1 as count
+                from diagnoses
                 where (inpatientoutpatientbillingcode=="O" or inpatientoutpatientbillingcode=="NA") 
                 and admitdate<"7/1/2015 12:00:00 AM" or arrivaldate<"7/1/2015 12:00:00 AM"')
+
+pheno_inpatient<-sqldf('select PatientIdentifier, encounteridentifier, icddiagnosiscode, 1 as count
+                from diagnoses
+                        where inpatientoutpatientbillingcode=="I" 
+                        and admitdate<"7/1/2015 12:00:00 AM" or arrivaldate<"7/1/2015 12:00:00 AM"')
 
 # Remove unnecessary datasets
 rm(h.patient, h.encounter, h.diagnoses, h.medications, h.social, h.patp,
@@ -93,7 +98,7 @@ diagnoses <- diagnoses %>%
                      -DiagnosisName, -VisitTypeCategory, -VisitType,
                      -EncounterType, -EDIndicator, -VisitReason, -Hospital, -ClinicLocationName, 
                      -PatientYearofBirth, -DiagnosisDate, -AdmitDate, -ArrivalDate,
-                     -LOShours, -InpatientOutpatientBillingCode)
+                     -LOShours, -InpatientOutpatientBillingCode, -ArrivalDateTime, -DepartureDateTime)
 
 diagnoses$PatientRace[diagnoses$PatientRace=='CAUCASIAN/WHITE']<-'WHITE OR CAUCASIAN'
 diagnoses$PatientRace[diagnoses$PatientRace=='AMERICAN INDIAN']<-'AMERICAN INDIAN OR ALASKAN NATIVE'
@@ -123,8 +128,29 @@ rm(diagnoses, diagnoses2, patp, social, patient, encounter)
 
 diagnoses.c<-diagnoses3[diagnoses3$EncounterDate<=as.Date("2015-06-30"),]
 diagnoses.f<-diagnoses3[diagnoses3$EncounterDate>as.Date("2015-06-30"),]
-#rm(diagnoses3)
+rm(diagnoses.c,diagnoses.f,medications)
 
+# Update ICD9 to ICD10 via lookup table
+look_up <- read.table('C:/Data/2015_I9gem.txt',stringsAsFactors = F,col.names=c('ICD9','ICD10','Other'))
 
+diagnoses3$ICDDiagnosisCode<-ifelse(gsub("\\.","",diagnoses3$ICDDiagnosisCode)%in%look_up$ICD9,
+                                     look_up$ICD10[match(gsub("\\.","",diagnoses3$ICDDiagnosisCode),look_up$ICD9)],
+                                    diagnoses3$ICDDiagnosisCode)
+diagnoses3$ICDDiagnosisCode<-ifelse((nchar(diagnoses3$ICDDiagnosisCode)>3&grepl("\\.",diagnoses3$ICDDiagnosisCode)==F),
+                                     gsub('^(.{3})(.*)$', '\\1.\\2', diagnoses3$ICDDiagnosisCode),
+                                     diagnoses3$ICDDiagnosisCode)
 
+# For phenotype subsetting
+pheno_outpatient$ICDDiagnosisCode<-ifelse(gsub("\\.","",pheno_outpatient$ICDDiagnosisCode)%in%look_up$ICD9,
+                                    look_up$ICD10[match(gsub("\\.","",pheno_outpatient$ICDDiagnosisCode),look_up$ICD9)],
+                                    pheno_outpatient$ICDDiagnosisCode)
+pheno_outpatient$ICDDiagnosisCode<-ifelse((nchar(pheno_outpatient$ICDDiagnosisCode)>3&grepl("\\.",pheno_outpatient$ICDDiagnosisCode)==F),
+                                    gsub('^(.{3})(.*)$', '\\1.\\2', pheno_outpatient$ICDDiagnosisCode),
+                                    pheno_outpatient$ICDDiagnosisCode)
 
+pheno_inpatient$ICDDiagnosisCode<-ifelse(gsub("\\.","",pheno_inpatient$ICDDiagnosisCode)%in%look_up$ICD9,
+                                          look_up$ICD10[match(gsub("\\.","",pheno_inpatient$ICDDiagnosisCode),look_up$ICD9)],
+                                          pheno_inpatient$ICDDiagnosisCode)
+pheno_inpatient$ICDDiagnosisCode<-ifelse((nchar(pheno_inpatient$ICDDiagnosisCode)>3&grepl("\\.",pheno_inpatient$ICDDiagnosisCode)==F),
+                                          gsub('^(.{3})(.*)$', '\\1.\\2', pheno_inpatient$ICDDiagnosisCode),
+                                          pheno_inpatient$ICDDiagnosisCode)

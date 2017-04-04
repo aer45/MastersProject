@@ -1,7 +1,9 @@
 # Subset patients by phenotype and identify diagnostic phenotype
 
 # Libraries
-
+library(VennDiagram)
+library(ggplot2)
+library(gridExtra)
 
 
 # Subset sample based on phenotype definitions
@@ -32,19 +34,40 @@ lc<-c("162.2","162.3","162.4","162.5","162.8","162.9","231.2","V10.11","C34.00",
 
 ptsd<-c("309.81","F43.10","F43.11","F43.12")
 
-pheno_icd<-c(bipo,sczo)
+pb_sub <- pheno_outpatient[pheno_outpatient$ICDDiagnosisCode%in%bipo,]
+pb_sub <- aggregate(count~PatientIdentifier,pb_sub,sum)
+pb_sub <- pb_sub[pb_sub$count<2,]
+pb_sub2 <- pheno_inpatient[(pheno_inpatient$PatientIdentifier%in%pb_sub$PatientIdentifier&pheno_inpatient$ICDDiagnosisCode%in%bipo),]
+pb_sub2 <- aggregate(count~PatientIdentifier,pb_sub2,sum)
+pb_sub2 <- pb_sub2[pb_sub2$count>0,]
+pb_subset <- pb_sub[!pb_sub$PatientIdentifier%in%pb_sub2$PatientIdentifier,]
 
-pheno_subset<-test3[,names(test3)%in%pheno_icd]
-pheno_subset<-data.frame(test3$PatientIdentifier,pheno_subset)
+ps_sub <- pheno_outpatient[pheno_outpatient$ICDDiagnosisCode%in%sczo,]
+ps_sub <- aggregate(count~PatientIdentifier,ps_sub,sum)
+ps_sub <- ps_sub[ps_sub$count<2,]
+ps_sub2 <- pheno_inpatient[(pheno_inpatient$PatientIdentifier%in%ps_sub$PatientIdentifier&pheno_inpatient$ICDDiagnosisCode%in%sczo),]
+ps_sub2 <- aggregate(count~PatientIdentifier,ps_sub2,sum)
+ps_sub2 <- ps_sub2[ps_sub2$count>0,]
+ps_subset <- ps_sub[!ps_sub$PatientIdentifier%in%ps_sub2$PatientIdentifier,]
 
-count<-rowsum(pheno_subset,pheno_subset$test3.PatientIdentifier)
-count2<-apply(count[,-1],1,sum)
-drop<-count2<2
-dropid<-count[drop==T,'test3.PatientIdentifier']
+drop_id <- unique(c(pb_subset$PatientIdentifier,ps_subset$PatientIdentifier))
 
-test3<-test3[!(test3$PatientIdentifier%in%dropid),]
+test3<-test3[!test3$PatientIdentifier%in%drop_id,]
 
-rm(count, count2, drop, pheno_icd, pheno_outpatient, pheno_subset)
+# pheno_icd<-c(bipo,sczo)
+# 
+# phenob_subset<-test3[,names(test3)%in%bipo]
+# phenob_subset<-data.frame(test3$PatientIdentifier%in%pheno_outpatient$PatientIdentifier,phenob_subset)
+# 
+# count<-rowsum(phenob_subset,phenob_subset$test3.PatientIdentifier)
+# count2<-apply(count[,-1],1,sum)
+# drop<-count2<2
+# dropid<-count[drop==T,'test3.PatientIdentifier']
+# 
+# test3<-test3[!(test3$PatientIdentifier%in%dropid),]
+
+
+#rm(pb_sub, pb_sub2, ps_sub, ps_sub2, pheno_outpatient, drop_id)
 
 
 
@@ -70,4 +93,39 @@ table(Dx)
 Dx<-data.frame('PatientIdentifier'=unique(test3$PatientIdentifier),Dx)
 Dx<-merge(test3[,1],Dx,by='PatientIdentifier')
 
-rm(sczo_subset, sczo_count, schizophrenia, bipo_subset, bipo_count, bipolar)
+# Venn Diagram
+grid.newpage()
+draw.pairwise.venn(sum(Dx=='Schizophrenia',Dx=='Both'),sum(Dx=='Bipolar',Dx=='Both'),sum(Dx=='Both'),
+                   category=c("Schizophrenia Phenotype Count","Bipolar Phenotype Count"),
+                   fill=c('green','yellow'),
+                   cat.pos=c(0,0))
+
+# Change subsets to binary
+bipo_subset[,-1] <- ifelse(bipo_subset[,-1]==0,0,1)
+sczo_subset[,-1] <- ifelse(sczo_subset[,-1]==0,0,1)
+
+# Add gender
+bipo_subset$Gender <- ifelse(test3$MALE_GENDER==1,'Male','Female')
+sczo_subset$Gender <- ifelse(test3$MALE_GENDER==1,'Male','Female')
+
+bipo_sum <- melt(bipo_subset,id=c('test3.PatientIdentifier','Gender'))
+bipo_sum <- bipo_sum[bipo_sum$value!=0,]
+bipo_sum$variable <- as.character(bipo_sum$variable)
+bipo_sum$variable <- ifelse(substr(bipo_sum$variable,1,1)!='X',bipo_sum$variable,substr(bipo_sum$variable,2,nchar(bipo_sum$variable)))
+sczo_sum <- melt(sczo_subset,id=c('test3.PatientIdentifier','Gender'))
+sczo_sum <- sczo_sum[sczo_sum$value!=0,]
+sczo_sum$variable <- as.character(sczo_sum$variable)
+sczo_sum$variable <- ifelse(substr(sczo_sum$variable,1,1)!='X',sczo_sum$variable,substr(sczo_sum$variable,2,nchar(sczo_sum$variable)))
+
+
+#bipo_sum$ICD <- ifelse(substr(bipo_sum$ICD,1,1)=='X',substr(bipo_sum$ICD,2,nchar(as.character(bipo_sum$ICD))),bipo_sum$ICD)
+
+# ICD Barplot
+s.icd <- ggplot(data=sczo_sum)+geom_bar(aes(x=variable, fill=Gender),stat='count')+
+  labs(title="Schizophrenia ICD Diagnosis Count",x="",y="Counts")+theme(axis.text.x=element_text(angle=45,hjust=1))
+b.icd <- ggplot(data=bipo_sum)+geom_bar(aes(x=variable,fill=Gender),stat='count')+
+  labs(title="Bipolar ICD Diagnosis Count",x="ICD Diagnosis Code",y="Counts")+theme(axis.text.x=element_text(angle=45,hjust=1))
+grid_arrange_shared_legend(s.icd,b.icd,nrow=2)
+
+#rm(sczo_subset, sczo_count, schizophrenia, sczo_sum, s.icd,
+#   bipo_subset, bipo_count, bipolar, bipo_sum, b.icd, lc, ptsd)

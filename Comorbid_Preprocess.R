@@ -17,22 +17,15 @@ datediff <- function(datecol,startdate,interval){
 #sczo_all <- unique(diagnoses3$PatientIdentifier[diagnoses3$ICDDiagnosisCode%in%sczo])
 #test<-diagnoses3[diagnoses3$PatientIdentifier%in%sczo_all,]
 # Read in dataset subset
-set.seed(1)
-test<-diagnoses3[diagnoses3$PatientIdentifier%in%sample(unique(diagnoses3$PatientIdentifier),1000),]
-
+#set.seed(1)
+#test<-diagnoses3[diagnoses3$PatientIdentifier%in%sample(unique(diagnoses3$PatientIdentifier),1000),]
+test<-diagnoses3
 #set.seed(2)
 #test_samp2 <- diagnoses3[diagnoses3$PatientIdentifier%in%sample(unique(diagnoses3$PatientIdentifier)[!unique(diagnoses3$PatientIdentifier)%in%test$PatientIdentifier],1000),]
 #test <- test_samp2
 # Create group ID  
 test$Group<-datediff(test$EncounterDate,"2014-07-01","2 years")
 
-# Order data by Pat ID, Group ID, and Encounter Date
-test<-test[order(test$PatientIdentifier,test$Group,test$EncounterDate),]
-
-# Code for missing values in categorical values in groups and attach tag for no duplicates
-test$DiagnosisGroup <- gsub('^$','NO DX GROUP', test$DiagnosisGroup)
-test$DiagnosisGroup <- paste0(test$DiagnosisGroup,'_GROUP')
-test$DiagnosisGroup <- NULL
 
 # Code for more potential missing values in categorical groups
 test$ICDDiagnosisCode <- gsub('^$','NO ICD',test$ICDDiagnosisCode)
@@ -42,88 +35,41 @@ test$ICDDiagnosisCategoryDescription <- paste0(test$ICDDiagnosisCategoryDescript
 test$ICDDiagnosisSubcategoryDescription <- paste0(test$ICDDiagnosisSubcategoryDescription,'_DXSUBCAT')
 test$Location <- paste0(test$Location,'_LOC')
 
+test_f <- test %>% select(PatientIdentifier, Group, EncounterIdentifier, EncounterAge,
+                        ICDDiagnosisSubcategoryDescription, PatientGender, PatientRace,
+                        EverReportedAlcoholUse, EverReportedIllicitDrugUse,
+                        EverReportedTobaccoUse,MostRecentlyReportedIllicitDrugUse,
+                        MostRecentlyReportedAlcoholUse,MostRecentlyReportedTobaccoUse,
+                        MostRecentlyReportedBirthControl,CurrentlySexuallyActive)
 
-test2<-test %>%
-  
-  # Average Days Between Encounters
-  # group_by(PatientIdentifier, Group) %>% 
-  # mutate(avgdaycount = mean(as.numeric(difftime(unique(EncounterDate),
-  #           lag(unique(EncounterDate),1))),na.rm=T),AverageDaysBetweenEncounters=ifelse(is.nan(avgdaycount),NA,
-  #           avgdaycount)) %>% 
-  # select(-avgdaycount) %>% 
-  # ungroup() %>%
+test2<-test_f %>%
   
   # Encounter Count
   group_by(PatientIdentifier, Group) %>% 
   mutate(TotalEncounters = length(unique(EncounterIdentifier))) %>%
   ungroup() %>%
   
-  # Average Days Between Encounters
-  group_by(PatientIdentifier, Group) %>% 
-  mutate(AverageDaysBetweenEncounters = 365/TotalEncounters) %>%
-  ungroup() %>%
   
   group_by(PatientIdentifier, Group) %>% 
   mutate(AVERAGE_AGE = mean(EncounterAge)) %>%
   #mutate(AVERAGE_LOS = mean(LOShours)) %>%
-  dplyr::select(-EncounterAge) %>% #, -LOShours) %>%
+  dplyr::select(-EncounterAge,-EncounterIdentifier) %>% #, -LOShours) %>%
   
-  # ICD Codes
-  group_by(PatientIdentifier, Group, ICDDiagnosisCode) %>% 
-  mutate(ICD_TEMP_COUNT = 1, ICD_COUNT = sum(ICD_TEMP_COUNT)) %>%
-  dplyr::select(-ICD_TEMP_COUNT) %>%
-  filter(row_number()==1) %>%
-  spread(key = ICDDiagnosisCode, value = ICD_COUNT, fill = 0) %>% 
-  ungroup() %>%
-  
-  # Diagnosis Group
-  # group_by(PatientIdentifier, Group, DiagnosisGroup) %>% 
-  # mutate(DG_TEMP_COUNT = 1, DG_COUNT = sum(DG_TEMP_COUNT)) %>%
-  # select(-DG_TEMP_COUNT) %>% 
-  # spread(key = DiagnosisGroup, value = DG_COUNT, fill = 0) %>% 
-  # ungroup() %>%
-
-  # ICD Diagnosis Category
-  group_by(PatientIdentifier, Group, ICDDiagnosisCategoryDescription) %>% 
-  mutate(DC_TEMP_COUNT = 1, DC_COUNT = sum(DC_TEMP_COUNT)) %>%
-  dplyr::select(-DC_TEMP_COUNT) %>% 
-  spread(key = ICDDiagnosisCategoryDescription, value = DC_COUNT, fill = 0) %>% 
-  ungroup() %>%
-
   # ICD Diagnosis Subcategory
   group_by(PatientIdentifier, Group, ICDDiagnosisSubcategoryDescription) %>%
   mutate(DSC_TEMP_COUNT = 1, DSC_COUNT=sum(DSC_TEMP_COUNT)) %>%
   dplyr::select(-DSC_TEMP_COUNT) %>%
+  filter(row_number()==1) %>% 
   spread(key = ICDDiagnosisSubcategoryDescription, value = DSC_COUNT, fill = 0) %>%
   ungroup() %>%
-
-  # group_by(PatientIdentifier, Group) %>% 
-  # mutate(AVERAGE_AGE = mean(EncounterAge)) %>%
-  # #mutate(AVERAGE_LOS = mean(LOShours)) %>%
-  # dplyr::select(-EncounterAge) %>% #, -LOShours) %>%
-
-  # Location
-  group_by(PatientIdentifier, EncounterIdentifier, Group, Location) %>% 
-  mutate(LOC_TEMP_COUNT = length(unique(EncounterIdentifier)), LOC_COUNT = sum(LOC_TEMP_COUNT)) %>%
-  dplyr::select(-LOC_TEMP_COUNT) %>% 
-  spread(key = Location, value = LOC_COUNT, fill = 0) %>% 
-  ungroup() %>%
   
-  # Encounter Type
-  group_by(PatientIdentifier, EncounterIdentifier, Group, Encounter) %>% 
-  mutate(ENC_TEMP_COUNT = 1, ENC_COUNT = sum(ENC_TEMP_COUNT)) %>%
-  dplyr::select(-ENC_TEMP_COUNT) %>% 
-  spread(key = Encounter, value = ENC_COUNT, fill = 0) %>% 
-  ungroup() %>%
-
+  
   group_by(PatientIdentifier, Group) %>% 
-  summarise_each(funs(max)) %>% 
-  dplyr::select(-EncounterIdentifier, -EncounterDate)
-  
-  
+  summarise_each(funs(max))
+
+
 test2$PatientGender<-paste0(test2$PatientGender,"_GENDER")
 test2$PatientRace<-paste0(test2$PatientRace,"_PR")
-test2$PatientEthnicGroup<-paste0(test2$PatientEthnicGroup,"_PE")
 test2$EverReportedAlcoholUse<-paste0(test2$EverReportedAlcoholUse,"_EA")
 test2$EverReportedIllicitDrugUse<-paste0(test2$EverReportedIllicitDrugUse,"_ED")
 test2$EverReportedTobaccoUse<-paste0(test2$EverReportedTobaccoUse,"_ET")
@@ -140,8 +86,6 @@ test3 <- test2 %>%
   spread(key = PatientGender, value = A_COUNT, fill = 0) %>%
   mutate(B_COUNT = 1) %>% 
   spread(key= PatientRace, value = B_COUNT, fill = 0) %>% 
-  mutate(C_COUNT = 1) %>% 
-  spread(key= PatientEthnicGroup, value = C_COUNT, fill = 0) %>% 
   mutate(D_COUNT = 1) %>% 
   spread(key= EverReportedAlcoholUse, value = D_COUNT, fill = 0) %>% 
   mutate(E_COUNT = 1) %>% 
@@ -159,4 +103,4 @@ test3 <- test2 %>%
   mutate(K_COUNT = 1) %>% 
   spread(key= CurrentlySexuallyActive, value = K_COUNT, fill = 0) %>% 
   ungroup()  
-  
+

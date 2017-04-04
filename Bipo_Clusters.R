@@ -8,7 +8,7 @@ bipo_df <- test3[Dx$Dx%in%c('Bipolar','Both'),]
 
 # Only keep pheno icd's
 bipo_id <- bipo_df[,c(1:2)]
-bipo_df <- bipo_df[,names(bipo_df)%in%bipo]
+bipo_df <- bipo_df[,names(bipo_df)%in%unique(test$ICDDiagnosisCategoryDescription)]
 
 # Change to binary
 bipo_df <- ifelse(bipo_df==0,0,1)
@@ -54,14 +54,18 @@ pltree(ag_bipo,cex=0.6, hang=-1)
 bipo_bin_dist <- dist.binary(bipo_df,method=5)
 sil_width <- c(NA)
 
-for (i in 2:50){
+for (i in 2:10){
+  set.seed(5)
   bipo_bin_fit <- pam(bipo_bin_dist,diss=T, k = i)
   sil_width[i] <- bipo_bin_fit$silinfo$avg.width
 }
 
-plot(1:50, sil_width, xlab='Number of clusters', ylab='Silhouette Width')
-lines(1:50, sil_width)
+plot(1:10, sil_width, xlab='Number of clusters', ylab='Silhouette Width')
+lines(1:10, sil_width)
 
-bipo_cluster <- pam(bipo_bin_dist, diss=T , k=2)
+set.seed(10)
+bipo_cluster <- pam(bipo_bin_dist, diss=T , k=3)
+clusplot(bipo_df,bipo_cluster$clustering,color=T,labels=4)
+
 plot_ly(x=bipo_decomp$u[,1]*bipo_decomp$d[1],y=bipo_decomp$u[,2]*bipo_decomp$d[2],
         z=bipo_decomp$u[,3]*bipo_decomp$d[3],color=bipo_cluster$clustering)
